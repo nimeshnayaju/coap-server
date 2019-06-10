@@ -11,7 +11,7 @@ from dtls.wrapper import wrap_server
 
 ''' CoAPthon '''
 from coapthon.server.coap import CoAP as CoAPServer
-from resources import WaterResource
+from resources import WaterResource, ElectricityResource
 
 ''' Logging '''
 from logging import basicConfig, DEBUG, getLogger, root, Filter
@@ -128,6 +128,7 @@ def main():
                       cb_ignore_listen_exception=cb_ignore_listen_exception)
 
   server.add_resource('water/', WaterResource())
+  server.add_resource('electricity/', ElectricityResource())
 
   ''' Start the server listen routine '''
   server_thread = threading.Thread(target=server.listen,
