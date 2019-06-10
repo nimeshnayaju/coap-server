@@ -18,7 +18,7 @@ class ElectricityResource(Resource):
     self.resource_type = "rt1"
     self.content_type = "application/json"
     self.interface_type = "if1"
-    self.payload = "I am electricity"
+    self.payload = "50 Watts"
 
   ''' Returns a JSON object with the values of 10 Electricity's meters '''
   def render_GET(self, request):
