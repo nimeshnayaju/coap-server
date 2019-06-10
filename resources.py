@@ -18,7 +18,7 @@ class ElectricityResource(Resource):
     self.resource_type = "rt1"
     self.content_type = "application/json"
     self.interface_type = "if1"
-    self.payload = (defines.Content_types["application/json"], json.dumps({'output': dummyvalues("Electricity", 10)}))
+    self.payload = "I am electricity"
 
   ''' Returns a JSON object with the values of 10 Electricity's meters '''
   def render_GET(self, request):
@@ -67,7 +67,7 @@ class AllMetersResource(Resource):
     self.interface_type = "if1"
     self.payload = (defines.Content_types["application/json"], json.dumps({'electricity': dummyvalues("Electricity", 10), 'water': dummyvalues("Water", 20)}))
 
-  ''' Returns a JSON object with the values of 10 Electricity's meters '''
+  ''' Returns a JSON object with the values of 10 Electricity's meters and 20 Water's meters '''
   def render_GET(self, request):
     return self
   
