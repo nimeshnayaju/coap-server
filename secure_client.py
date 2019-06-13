@@ -112,6 +112,7 @@ def client_callback(response):
 def client_callback_observe(response):  # pragma: no cover
   global client
   print("Callback Observe")
+  print (response.pretty_print())
   check = True
   while check:
     chosen = raw_input("Stop observing? [Y/N]: ")
@@ -212,8 +213,8 @@ def main():
   ''' Connect CoAP client to the newly created socket '''
   client = HelperClient(server_address,
                         sock=sock,
-                        cb_ignore_read_exception=cb_ignore_read_exception,
-                        cb_ignore_write_exception=cb_ignore_write_exception)
+                        cb_ignore_read_exception=_cb_ignore_read_exception,
+                        cb_ignore_write_exception=_cb_ignore_write_exception)
 
 
   if operation == "GET":
@@ -239,7 +240,17 @@ def main():
       print("Path needs to be specified for a GET request")
       usage()
       sys.exit(2)
-    client.observe(path, client_callback_observe)
+    req = Request()
+    req.observe = 0
+    req.code = defines.Codes.GET.number
+    # req.proxy_uri = "coap://" + host + ":" + str(port) + "/" + path
+    req.uri_path = "/" + path + "/"
+    req.type = defines.Types["CON"]
+    req._mid = current_mid
+    req.destination = server_address
+
+    client.send_request(req, client_callback_observe)
+    # client.observe(path, client_callback_observe)
     
 def setUpPems():
   def createPemFile(fname, content):
@@ -258,7 +269,7 @@ def setUpPems():
   return pem
 
 
-def cb_ignore_write_exception(self, exception, client):
+def _cb_ignore_write_exception(self, exception, client):
   """
   In the CoAP client write method, different exceptions can arise from the DTLS stack. Depending on the type of exception, a
   continuation might not be possible, or a logging might be desirable. With this callback both needs can be satisfied.
@@ -271,7 +282,7 @@ def cb_ignore_write_exception(self, exception, client):
   """
   return False
 
-def cb_ignore_read_exception(self, exception, client):
+def _cb_ignore_read_exception(self, exception, client):
   """
   In the CoAP client read method, different exceptions can arise from the DTLS stack. Depending on the type of exception, a
   continuation might not be possible, or a logging might be desirable. With this callback both needs can be satisfied.
