@@ -10,7 +10,7 @@ import ssl
 from dtls.wrapper import wrap_server
 
 ''' CoAPthon '''
-from coapthon.server.coap import CoAP as CoAPServer
+from coapthon.server.coap import CoAP
 from resources import WaterResource, ElectricityResource
 
 ''' Logging '''
@@ -97,9 +97,17 @@ X6bTBq2AIKzGGXxhwPqD8F7su7bmZDnZFRMRk2Bh16rv0mtzx9yHtqC5YJZ2a3JK
 -----END CERTIFICATE-----
 """
 
+class CoAPServer(CoAP):
+  def __init__(self, host, port, multicast=False, starting_mid=None, sock=None, cb_ignore_listen_exception=None):
+    CoAP.__init__(self, (host, port), multicast, starting_mid, sock, cb_ignore_listen_exception)
+
+    self.add_resource('water/', WaterResource())
+    self.add_resource('electricity/', ElectricityResource(coap_server=self))
 
 def main():
   host_address = ("127.0.0.1", 5684)
+  ip = '127.0.0.1'
+  port = 5684
   current_mid = random.randint(1, 1000)
   server_mid = random.randint(1000, 2000)
   server_read_timeout = 0.1
@@ -122,13 +130,10 @@ def main():
     sock.close()
 
   ''' Connect CoAP server to the newly created socket '''
-  server = CoAPServer(host_address,
+  server = CoAPServer(ip, port,
                       starting_mid=server_mid,
                       sock=sock,
                       cb_ignore_listen_exception=cb_ignore_listen_exception)
-
-  server.add_resource('water/', WaterResource())
-  server.add_resource('electricity/', ElectricityResource())
 
   ''' Start the server listen routine '''
   server_thread = threading.Thread(target=server.listen,

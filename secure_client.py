@@ -3,6 +3,8 @@ import socket
 import tempfile
 import random
 import os
+import getopt
+import sys
 
 ''' DTLS '''
 import ssl
@@ -12,6 +14,7 @@ from dtls.wrapper import wrap_client
 ''' CoAPthon '''
 from coapthon.messages.request import Request
 from coapthon.client.helperclient import HelperClient
+from coapthon.utils import parse_uri
 
 CA_CERT_VALID = """-----BEGIN CERTIFICATE-----
 MIICCzCCAXQCCQCwvSKaN4J3cTANBgkqhkiG9w0BAQUFADBKMQswCQYDVQQGEwJV
@@ -91,11 +94,109 @@ X6bTBq2AIKzGGXxhwPqD8F7su7bmZDnZFRMRk2Bh16rv0mtzx9yHtqC5YJZ2a3JK
 -----END CERTIFICATE-----
 """
 
-def main():
+client = None
 
+def usage():  # pragma: no cover
+    print "Command:\tcoapclient.py -o -p [-P] [-u]"
+    print "Options:"
+    print "\t-o, --operation=\tGET|PUT|POST|DELETE|DISCOVER|OBSERVE"
+    print "\t-p, --path=\t\tPath of the request"
+    print "\t-P, --payload=\t\tPayload of the request"
+    print "\t-f, --payload-file=\tFile with payload of the request"
+    print "\t-u, --proxy-uri-header=\tProxy-Uri CoAP Header of the request"
+
+
+def client_callback(response):
+  print("Callback")
+
+def client_callback_observe(response):  # pragma: no cover
+  global client
+  print("Callback Observe")
+  check = True
+  while check:
+    chosen = raw_input("Stop observing? [Y/N]: ")
+    if chosen != "" and not (chosen == "n" or chosen == "N" or chosen == "y" or chosen == "Y"):
+      print("Unrecognized choice")
+      continue
+    elif chosen == "y" or chosen == "Y":
+      while True:
+        rst = raw_input("Send RST message? [Y/N]: ")
+        if rst != "" and not (rst == "n" or rst == "N" or rst == "y" or rst == "Y"):
+          print("Unrecognized choice")
+          continue
+        elif rst == "" or rst == "y" or rst == "Y":
+          client.cancel_observing(response, True)
+        else:
+          client.cancel_observing(response, False)
+        check = False
+        break
+    else:
+      break
+
+def main():
+  global client
+
+  operation = None
+  path = None
+  payload = None
+  proxy_uri = None
+
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "ho:p:P:f:", ["help", "operation=", "path=", "payload=", "payload-file=", "proxy-uri-header="])
+  except getopt.GetoptError as err:
+    print(str(err))
+    usage()
+    sys.exit(2)
+
+  for opt, arg in opts:
+    if opt in("-o", "--operation"):
+      operation = arg
+    elif opt in ("-p", "--path"):
+      path = arg
+    elif opt in ("-P", "--payload"):
+      payload = arg
+    elif opt in ("-f", "--payload-file"):
+      with open(arg, "r") as f:
+        payload = f.read()
+    elif opt in ("-u", "--proxy-uri-header"):
+      proxy_uri = arg
+    elif opt in ("-h", "--help"):
+      usage()
+      sys.exit()
+    else:
+      usage()
+      sys.exit(2)
+
+  if operation is None:
+    print("Operation must be specified")
+    usage()
+    sys.exit(2)
+  
+  if path is None:
+    print("Path must be specified")
+    usage()
+    sys.exit(2)
+  
+  if not path.startswith("coap://"):
+    print("Path must conform to coap://host[:port]/path")
+    usage()
+    sys.exit(2)
+  
+  if proxy_uri and not proxy_uri.startswith("http://") and not proxy_uri.startswith("https://"):
+    print("Proxy-Uri header must conform to http[s]://host[:port]/path")
+    usage()
+    sys.exit(2)
+
+  host, port, path = parse_uri(path)
+
+  try:
+    tmp = socket.gethostbyname(host)
+    host = tmp
+  except socket.gaierror:
+    pass
+  
+  server_address = (host, port)
   current_mid = random.randint(1, 1000)
-  server_address = ("127.0.0.1", 5684)
-  path = "water"
 
   pem = setUpPems()
 
@@ -114,24 +215,32 @@ def main():
                         cb_ignore_read_exception=cb_ignore_read_exception,
                         cb_ignore_write_exception=cb_ignore_write_exception)
 
-  req = Request()
-  req.code = defines.Codes.GET.number
-  req.uri_path = "/electricity/"
-  req.type = defines.Types["CON"]
-  req._mid = current_mid
-  req.destination = server_address
-  req.add_if_none_match()
 
-  received_message = client.send_request(req)
-  print(received_message.pretty_print())
-  client.stop()
+  if operation == "GET":
+    if path is None:
+      print("Path needs to be specified for a GET request")
+      usage()
+      sys.exit(2)
+    
+    req = Request()
+    req.code = defines.Codes.GET.number
+    req.uri_path = "/" + path + "/"
+    req.type = defines.Types["CON"]
+    req._mid = current_mid
+    req.destination = server_address
+    req.add_if_none_match()
 
+    received_message = client.send_request(req)
+    print(received_message.pretty_print())
+    client.stop()
 
-  # response = client.get(path)
-  # print(response.pretty_print())
-  # client.stop()
-
-
+  elif operation == "OBSERVE":
+    if path is None:
+      print("Path needs to be specified for a GET request")
+      usage()
+      sys.exit(2)
+    client.observe(path, client_callback_observe)
+    
 def setUpPems():
   def createPemFile(fname, content):
     with open(fname, mode='w') as f:
